@@ -2,13 +2,9 @@
 *.ipr
 *.iws
 .idea/*
-.classpath
-.project
-.settings/*
 .gradle/*
 build/*
 src/main/java/rebel.xml
 /bin/
 /build/
-/.settings/
 /.gradle/
