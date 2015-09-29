@@ -1,7 +1,9 @@
 package com.ullink.slack.simpleslackapi.impl;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.Reader;
 import java.net.ConnectException;
 import java.net.Proxy;
 import java.net.URI;
@@ -10,11 +12,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+
 import javax.websocket.DeploymentException;
 import javax.websocket.Endpoint;
 import javax.websocket.EndpointConfig;
 import javax.websocket.MessageHandler;
 import javax.websocket.Session;
+
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
@@ -33,11 +37,26 @@ import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.google.common.io.CharStreams;
-import com.ullink.slack.simpleslackapi.*;
-import com.ullink.slack.simpleslackapi.events.*;
-import com.ullink.slack.simpleslackapi.listeners.*;
+
+import com.ullink.slack.simpleslackapi.SlackAttachment;
+import com.ullink.slack.simpleslackapi.SlackChannel;
+import com.ullink.slack.simpleslackapi.SlackMessageHandle;
+import com.ullink.slack.simpleslackapi.SlackPersona;
+import com.ullink.slack.simpleslackapi.SlackSession;
+import com.ullink.slack.simpleslackapi.events.SlackChannelArchived;
+import com.ullink.slack.simpleslackapi.events.SlackChannelCreated;
+import com.ullink.slack.simpleslackapi.events.SlackChannelDeleted;
+import com.ullink.slack.simpleslackapi.events.SlackChannelRenamed;
+import com.ullink.slack.simpleslackapi.events.SlackChannelUnarchived;
+import com.ullink.slack.simpleslackapi.events.SlackConnected;
+import com.ullink.slack.simpleslackapi.events.SlackEvent;
+import com.ullink.slack.simpleslackapi.events.SlackGroupJoined;
+import com.ullink.slack.simpleslackapi.events.SlackMessageDeleted;
+import com.ullink.slack.simpleslackapi.events.SlackMessagePosted;
+import com.ullink.slack.simpleslackapi.events.SlackMessageUpdated;
+import com.ullink.slack.simpleslackapi.events.SlackReplyEvent;
 import com.ullink.slack.simpleslackapi.impl.SlackChatConfiguration.Avatar;
+import com.ullink.slack.simpleslackapi.listeners.SlackEventListener;
 
 class SlackWebSocketSessionImpl extends AbstractSlackSessionImpl implements SlackSession, MessageHandler.Whole<String>
 {
@@ -178,7 +197,7 @@ class SlackWebSocketSessionImpl extends AbstractSlackSessionImpl implements Slac
         HttpResponse response;
         response = httpClient.execute(request);
         LOGGER.debug(response.getStatusLine().toString());
-        String jsonResponse = CharStreams.toString(new InputStreamReader(response.getEntity().getContent()));
+        String jsonResponse = consumeToString(response.getEntity().getContent());
         SlackJSONSessionStatusParser sessionParser = new SlackJSONSessionStatusParser(jsonResponse);
         try
         {
@@ -465,7 +484,7 @@ class SlackWebSocketSessionImpl extends AbstractSlackSessionImpl implements Slac
         {
             request.setEntity(new UrlEncodedFormEntity(nameValuePairList, "UTF-8"));
             HttpResponse response = client.execute(request);
-            String jsonResponse = CharStreams.toString(new InputStreamReader(response.getEntity().getContent()));
+            String jsonResponse = consumeToString(response.getEntity().getContent());
             LOGGER.debug("PostMessage return: " + jsonResponse);
             SlackReplyImpl reply = SlackJSONReplyParser.decode(parseObject(jsonResponse));
             handle.setSlackReply(reply);
@@ -527,7 +546,7 @@ class SlackWebSocketSessionImpl extends AbstractSlackSessionImpl implements Slac
         {
             request.setEntity(new UrlEncodedFormEntity(nameValuePairList, "UTF-8"));
             HttpResponse response = client.execute(request);
-            String jsonResponse = CharStreams.toString(new InputStreamReader(response.getEntity().getContent()));
+            String jsonResponse = consumeToString(response.getEntity().getContent());
             LOGGER.debug("PostMessage return: " + jsonResponse);
             JSONObject resultObject = parseObject(jsonResponse);
 
@@ -555,7 +574,17 @@ class SlackWebSocketSessionImpl extends AbstractSlackSessionImpl implements Slac
         return SlackPersona.SlackPresence.UNKNOWN;
     }
 
-    private synchronized long getNextMessageId()
+    private String consumeToString(InputStream content) throws IOException {
+    	Reader reader = new InputStreamReader(content, "UTF-8");
+    	StringBuffer buf = new StringBuffer();
+    	char data[] = new char[16384];
+    	int numread;
+    	while (0 <= (numread = reader.read(data)))
+    		buf.append(data, 0, numread);
+		return buf.toString();
+	}
+
+	private synchronized long getNextMessageId()
     {
         return messageId++;
     }
