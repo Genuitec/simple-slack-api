@@ -23,4 +23,6 @@ Bundle-ClassPath: lib/commons-logging-1.2.jar,
  .
 Export-Package: com.ullink.slack.simpleslackapi,
  com.ullink.slack.simpleslackapi.events,
- com.ullink.slack.simpleslackapi.listeners
+ com.ullink.slack.simpleslackapi.listeners,
+ org.json.simple,
+ org.json.simple.parser
