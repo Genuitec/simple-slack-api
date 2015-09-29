@@ -19,7 +19,7 @@ Bundle-ClassPath: lib/commons-logging-1.2.jar,
  lib/tyrus-core-1.11.jar,
  lib/tyrus-server-1.11.jar,
  lib/tyrus-spi-1.11.jar,
- .
+ simpleslackapi.jar
 Export-Package: com.ullink.slack.simpleslackapi,
  com.ullink.slack.simpleslackapi.events,
  com.ullink.slack.simpleslackapi.impl,
