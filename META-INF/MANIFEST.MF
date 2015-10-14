@@ -2,7 +2,7 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: Simple Slack API
 Bundle-SymbolicName: com.ullink.slack.simpleslack.api
-Bundle-Version: 0.4.5.tyrus112
+Bundle-Version: 0.4.5.qualifier
 Bundle-Vendor: Ullink
 Bundle-RequiredExecutionEnvironment: JavaSE-1.7
 Bundle-ClassPath: lib/commons-logging-1.2.jar,
