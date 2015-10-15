@@ -24,6 +24,7 @@ import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
@@ -189,11 +190,15 @@ class SlackWebSocketSessionImpl extends AbstractSlackSessionImpl implements Slac
 
     private void connectImpl() throws IOException, ClientProtocolException, ConnectException
     {
+    	RequestConfig requestConfig = RequestConfig.custom().setSocketTimeout(60000).
+    		setConnectTimeout(60000).setConnectionRequestTimeout(60000).build();
+    	
         LOGGER.info("connecting to slack");
         lastPingSent = 0;
         lastPingAck = 0;
         HttpClient httpClient = getHttpClient();
         HttpGet request = new HttpGet(SLACK_HTTPS_AUTH_URL + authToken);
+        request.setConfig(requestConfig);
         HttpResponse response;
         response = httpClient.execute(request);
         LOGGER.debug(response.getStatusLine().toString());
