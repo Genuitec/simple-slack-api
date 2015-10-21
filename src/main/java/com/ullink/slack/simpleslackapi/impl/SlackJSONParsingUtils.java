@@ -1,8 +1,9 @@
 package com.ullink.slack.simpleslackapi.impl;
 
 import java.util.Map;
-import org.json.simple.JSONArray;
+
 import org.json.simple.JSONObject;
+
 import com.ullink.slack.simpleslackapi.SlackUser;
 
 class SlackJSONParsingUtils
@@ -47,33 +48,13 @@ class SlackJSONParsingUtils
         return deleted;
     }
 
-    static final SlackChannelImpl buildSlackChannel(JSONObject jsonChannel, Map<String, SlackUser> knownUsersById)
+    static final SlackChannelImpl buildSlackChannel(JSONObject jsonChannel)
     {
         String id = (String) jsonChannel.get("id");
         String name = (String) jsonChannel.get("name");
         String topic = null; // TODO
         String purpose = null; // TODO
         SlackChannelImpl toReturn = new SlackChannelImpl(id, name, topic, purpose, false);
-        JSONArray membersJson = (JSONArray) jsonChannel.get("members");
-        if (membersJson != null)
-        {
-            for (Object jsonMembersObject : membersJson)
-            {
-                String memberId = (String) jsonMembersObject;
-                SlackUser user = knownUsersById.get(memberId);
-                toReturn.addUser(user);
-            }
-        }
-        return toReturn;
-    }
-
-    static final SlackChannelImpl buildSlackImChannel(JSONObject jsonChannel, Map<String, SlackUser> knownUsersById)
-    {
-        String id = (String) jsonChannel.get("id");
-        SlackChannelImpl toReturn = new SlackChannelImpl(id, null, null, null, true);
-        String memberId = (String) jsonChannel.get("user");
-        SlackUser user = knownUsersById.get(memberId);
-        toReturn.addUser(user);
         return toReturn;
     }
 

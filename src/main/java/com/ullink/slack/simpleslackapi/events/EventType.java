@@ -6,12 +6,12 @@ import java.util.Map;
 public enum EventType
 {
     MESSAGE("message"),
-    CHANNEL_CREATED("channel_created"),
-    CHANNEL_DELETED("channel_deleted"),
-    CHANNEL_RENAME("channel_rename"),
-    CHANNEL_ARCHIVE("channel_archive"),
-    CHANNEL_UNARCHIVE("channel_unarchive"),
+    GROUP_RENAMED("group_rename"),
     GROUP_JOINED("group_joined"),
+    GROUP_LEFT("group_left"),
+    CHANNEL_RENAMED("channel_rename"),
+    CHANNEL_JOINED("channel_joined"),
+    CHANNEL_LEFT("channel_left"),
     OTHER("-");
 
     private static final Map<String, EventType> CODE_MAP = new HashMap<>();

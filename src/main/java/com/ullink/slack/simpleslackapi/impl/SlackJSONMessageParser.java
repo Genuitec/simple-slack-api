@@ -2,25 +2,26 @@ package com.ullink.slack.simpleslackapi.impl;
 
 import java.util.HashMap;
 import java.util.Map;
+
 import org.json.simple.JSONObject;
-import com.ullink.slack.simpleslackapi.SlackBot;
+
 import com.ullink.slack.simpleslackapi.SlackChannel;
 import com.ullink.slack.simpleslackapi.SlackSession;
 import com.ullink.slack.simpleslackapi.SlackUser;
 import com.ullink.slack.simpleslackapi.events.EventType;
-import com.ullink.slack.simpleslackapi.events.SlackChannelArchived;
-import com.ullink.slack.simpleslackapi.events.SlackChannelCreated;
-import com.ullink.slack.simpleslackapi.events.SlackChannelDeleted;
+import com.ullink.slack.simpleslackapi.events.SlackChannelJoined;
+import com.ullink.slack.simpleslackapi.events.SlackChannelLeft;
 import com.ullink.slack.simpleslackapi.events.SlackChannelRenamed;
-import com.ullink.slack.simpleslackapi.events.SlackChannelUnarchived;
 import com.ullink.slack.simpleslackapi.events.SlackEvent;
 import com.ullink.slack.simpleslackapi.events.SlackGroupJoined;
+import com.ullink.slack.simpleslackapi.events.SlackGroupLeft;
+import com.ullink.slack.simpleslackapi.events.SlackGroupRenamed;
 
 class SlackJSONMessageParser
 {
     public static enum SlackMessageSubType
     {
-        CHANNEL_JOIN("channel_join"), MESSAGE_CHANGED("message_changed"), MESSAGE_DELETED("message_deleted"), BOT_MESSAGE("bot_message"), OTHER("-");
+        MESSAGE_CHANGED("message_changed"), MESSAGE_DELETED("message_deleted"), BOT_MESSAGE("bot_message"), OTHER("-");
 
         private static final Map<String, SlackMessageSubType> CODE_MAP = new HashMap<>();
 
@@ -67,20 +68,21 @@ class SlackJSONMessageParser
         {
             case MESSAGE:
                 return extractMessageEvent(slackSession, obj);
-            case CHANNEL_CREATED:
-                return extractChannelCreatedEvent(slackSession, obj);
-            case CHANNEL_ARCHIVE:
-                return extractChannelArchiveEvent(slackSession, obj);
-            case CHANNEL_DELETED:
-                return extractChannelDeletedEvent(slackSession, obj);
-            case CHANNEL_RENAME:
+            case CHANNEL_RENAMED:
                 return extractChannelRenamedEvent(slackSession, obj);
-            case CHANNEL_UNARCHIVE:
-                return extractChannelUnarchiveEvent(slackSession, obj);
+            case CHANNEL_JOINED:
+                return extractChannelJoinedEvent(slackSession, obj);
+            case CHANNEL_LEFT:
+                return extractChannelLeftEvent(slackSession, obj);
+            case GROUP_RENAMED:
+                return extractGroupRenamedEvent(slackSession, obj);
             case GROUP_JOINED:
                 return extractGroupJoinedEvent(slackSession, obj);
-            default:
-                return SlackEvent.UNKNOWN_EVENT;
+            case GROUP_LEFT:
+                return extractGroupLeftEvent(slackSession, obj);
+            case OTHER:
+        	default:
+            	return null;
         }
     }
 
@@ -91,40 +93,38 @@ class SlackJSONMessageParser
         return new SlackGroupJoinedImpl(slackChannel);
     }
 
+    private static SlackGroupLeft extractGroupLeftEvent(SlackSession slackSession, JSONObject obj)
+    {
+        SlackChannel channel = slackSession.findChannelById((String) obj.get("channel"));
+        return new SlackGroupLeftImpl(channel);
+    }
+
+    private static SlackGroupRenamed extractGroupRenamedEvent(SlackSession slackSession, JSONObject obj)
+    {
+        String channelId = (String) obj.get("channel");
+        String newName = (String) obj.get("name");
+        SlackChannel channel = slackSession.findChannelById(channelId);
+        return new SlackGroupRenamedImpl(channel, newName);
+    }
+
+    private static SlackChannelJoined extractChannelJoinedEvent(SlackSession slackSession, JSONObject obj)
+    {
+        JSONObject channelJSONObject = (JSONObject) obj.get("channel");
+        SlackChannel slackChannel = parseChannelDescription(channelJSONObject);
+        return new SlackChannelJoinedImpl(slackChannel);
+    }
+
+    private static SlackChannelLeft extractChannelLeftEvent(SlackSession slackSession, JSONObject obj)
+    {
+        SlackChannel channel = slackSession.findChannelById((String) obj.get("channel"));
+        return new SlackChannelLeftImpl(channel);
+    }
+
     private static SlackChannelRenamed extractChannelRenamedEvent(SlackSession slackSession, JSONObject obj)
     {
         String channelId = (String) obj.get("channel");
         String newName = (String) obj.get("name");
         return new SlackChannelRenamedImpl(slackSession.findChannelById(channelId), newName);
-    }
-
-    private static SlackChannelDeleted extractChannelDeletedEvent(SlackSession slackSession, JSONObject obj)
-    {
-        String channelId = (String) obj.get("channel");
-        return new SlackChannelDeletedImpl(slackSession.findChannelById(channelId));
-    }
-
-    private static SlackChannelUnarchived extractChannelUnarchiveEvent(SlackSession slackSession, JSONObject obj)
-    {
-        String channelId = (String) obj.get("channel");
-        String userId = (String) obj.get("user");
-        return new SlackChannelUnarchivedImpl(slackSession.findChannelById(channelId), slackSession.findUserById(userId));
-    }
-
-    private static SlackChannelArchived extractChannelArchiveEvent(SlackSession slackSession, JSONObject obj)
-    {
-        String channelId = (String) obj.get("channel");
-        String userId = (String) obj.get("user");
-        return new SlackChannelArchivedImpl(slackSession.findChannelById(channelId), slackSession.findUserById(userId));
-    }
-
-    private static SlackChannelCreated extractChannelCreatedEvent(SlackSession slackSession, JSONObject obj)
-    {
-        JSONObject channelJSONObject = (JSONObject) obj.get("channel");
-        SlackChannel channel = parseChannelDescription(channelJSONObject);
-        String creatorId = (String) channelJSONObject.get("creator");
-        SlackUser user = slackSession.findUserById(creatorId);
-        return new SlackChannelCreatedImpl(channel, user);
     }
 
     private static SlackEvent extractMessageEvent(SlackSession slackSession, JSONObject obj)

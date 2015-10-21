@@ -1,18 +1,12 @@
 package com.ullink.slack.simpleslackapi.impl;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
 import com.ullink.slack.simpleslackapi.SlackChannel;
-import com.ullink.slack.simpleslackapi.SlackUser;
 
 class SlackChannelImpl implements SlackChannel
 {
     private final boolean direct;
     private String         id;
     private String         name;
-    private Set<SlackUser> members = new HashSet<>();
     private String         topic;
     private String         purpose;
 
@@ -25,16 +19,6 @@ class SlackChannelImpl implements SlackChannel
         this.direct = direct;
     }
 
-    void addUser(SlackUser user)
-    {
-        members.add(user);
-    }
-
-    void removeUser(SlackUser user)
-    {
-        members.remove(user);
-    }
-
     @Override
     public String getId()
     {
@@ -45,12 +29,6 @@ class SlackChannelImpl implements SlackChannel
     public String getName()
     {
         return name;
-    }
-
-    @Override
-    public Collection<SlackUser> getMembers()
-    {
-        return new ArrayList<>(members);
     }
 
     @Override
@@ -78,5 +56,10 @@ class SlackChannelImpl implements SlackChannel
     @Override
     public boolean isDirect() {
         return direct;
+    }
+    
+    @Override
+    public void setName(String newName) {
+    	this.name = newName;
     }
 }

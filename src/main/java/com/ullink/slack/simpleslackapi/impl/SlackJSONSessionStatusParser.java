@@ -62,6 +62,10 @@ class SlackJSONSessionStatusParser
             error = (String)jsonResponse.get("error");
             return;
         }
+        
+        JSONObject selfJson = (JSONObject) jsonResponse.get("self");
+        sessionPersona = SlackJSONParsingUtils.buildSlackUser(selfJson);
+        
         JSONArray usersJson = (JSONArray) jsonResponse.get("users");
 
         for (Object jsonObject : usersJson)
@@ -84,13 +88,26 @@ class SlackJSONSessionStatusParser
         }
 
         JSONArray channelsJson = (JSONArray) jsonResponse.get("channels");
-
         for (Object jsonObject : channelsJson)
         {
             JSONObject jsonChannel = (JSONObject) jsonObject;
-            SlackChannelImpl channel = SlackJSONParsingUtils.buildSlackChannel(jsonChannel, users);
-            LOGGER.debug("slack public channel found : " + channel.getId());
-            channels.put(channel.getId(), channel);
+            JSONArray membersJson = (JSONArray) jsonChannel.get("members");
+            boolean isPersonaInGroup = false;
+            if (membersJson != null)
+            {
+                for (Object jsonMembersObject : membersJson)
+                {
+                    String memberId = (String) jsonMembersObject;
+					if (sessionPersona.getId().equals(memberId))
+						isPersonaInGroup = true;
+                }
+            }
+            
+            if (isPersonaInGroup) {
+	            SlackChannelImpl channel = SlackJSONParsingUtils.buildSlackChannel(jsonChannel);
+	            LOGGER.debug("slack public channel found : " + channel.getId());
+	            channels.put(channel.getId(), channel);
+            }
         }
 
         JSONArray groupsJson = (JSONArray) jsonResponse.get("groups");
@@ -98,24 +115,10 @@ class SlackJSONSessionStatusParser
         for (Object jsonObject : groupsJson)
         {
             JSONObject jsonChannel = (JSONObject) jsonObject;
-            SlackChannelImpl channel = SlackJSONParsingUtils.buildSlackChannel(jsonChannel, users);
+            SlackChannelImpl channel = SlackJSONParsingUtils.buildSlackChannel(jsonChannel);
             LOGGER.debug("slack private group found : " + channel.getId());
             channels.put(channel.getId(), channel);
         }
-
-        JSONArray imsJson = (JSONArray) jsonResponse.get("ims");
-
-        for (Object jsonObject : imsJson)
-        {
-            JSONObject jsonChannel = (JSONObject) jsonObject;
-            SlackChannelImpl channel = SlackJSONParsingUtils.buildSlackImChannel(jsonChannel, users);
-            LOGGER.debug("slack im channel found : " + channel.getId());
-            channels.put(channel.getId(), channel);
-        }
-
-        JSONObject selfJson = (JSONObject) jsonResponse.get("self");
-        sessionPersona = SlackJSONParsingUtils.buildSlackUser(selfJson);
-
 
         webSocketURL = (String) jsonResponse.get("url");
 

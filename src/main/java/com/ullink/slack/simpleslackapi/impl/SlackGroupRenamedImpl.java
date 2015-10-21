@@ -1,19 +1,18 @@
 package com.ullink.slack.simpleslackapi.impl;
 
 import com.ullink.slack.simpleslackapi.SlackChannel;
-import com.ullink.slack.simpleslackapi.SlackUser;
-import com.ullink.slack.simpleslackapi.events.SlackChannelUnarchived;
 import com.ullink.slack.simpleslackapi.events.SlackEventType;
+import com.ullink.slack.simpleslackapi.events.SlackGroupRenamed;
 
-class SlackChannelUnarchivedImpl implements SlackChannelUnarchived
+class SlackGroupRenamedImpl implements SlackGroupRenamed
 {
     private SlackChannel slackChannel;
-    private SlackUser slackuser;
-    
-    SlackChannelUnarchivedImpl(SlackChannel slackChannel, SlackUser slackuser)
+    private String       newName;
+
+    SlackGroupRenamedImpl(SlackChannel slackChannel, String newName)
     {
         this.slackChannel = slackChannel;
-        this.slackuser = slackuser;
+        this.newName = newName;
     }
 
     @Override
@@ -23,15 +22,15 @@ class SlackChannelUnarchivedImpl implements SlackChannelUnarchived
     }
 
     @Override
-    public SlackUser getUser()
+    public String getNewName()
     {
-        return slackuser;
+        return newName;
     }
 
     @Override
     public SlackEventType getEventType()
     {
-        return SlackEventType.SLACK_CHANNEL_UNARCHIVED;
+        return SlackEventType.SLACK_GROUP_RENAMED;
     }
 
 }

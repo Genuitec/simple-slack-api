@@ -44,14 +44,14 @@ import com.ullink.slack.simpleslackapi.SlackChannel;
 import com.ullink.slack.simpleslackapi.SlackMessageHandle;
 import com.ullink.slack.simpleslackapi.SlackPersona;
 import com.ullink.slack.simpleslackapi.SlackSession;
-import com.ullink.slack.simpleslackapi.events.SlackChannelArchived;
-import com.ullink.slack.simpleslackapi.events.SlackChannelCreated;
-import com.ullink.slack.simpleslackapi.events.SlackChannelDeleted;
+import com.ullink.slack.simpleslackapi.events.SlackChannelJoined;
+import com.ullink.slack.simpleslackapi.events.SlackChannelLeft;
 import com.ullink.slack.simpleslackapi.events.SlackChannelRenamed;
-import com.ullink.slack.simpleslackapi.events.SlackChannelUnarchived;
 import com.ullink.slack.simpleslackapi.events.SlackConnected;
 import com.ullink.slack.simpleslackapi.events.SlackEvent;
 import com.ullink.slack.simpleslackapi.events.SlackGroupJoined;
+import com.ullink.slack.simpleslackapi.events.SlackGroupLeft;
+import com.ullink.slack.simpleslackapi.events.SlackGroupRenamed;
 import com.ullink.slack.simpleslackapi.events.SlackMessageDeleted;
 import com.ullink.slack.simpleslackapi.events.SlackMessagePosted;
 import com.ullink.slack.simpleslackapi.events.SlackMessageUpdated;
@@ -63,10 +63,6 @@ class SlackWebSocketSessionImpl extends AbstractSlackSessionImpl implements Slac
 {
     private static final String SLACK_API_HTTPS_ROOT      = "https://slack.com/api/";
 
-    private static final String CHANNELS_LEAVE_COMMAND    = "channels.leave";
-
-    private static final String CHANNELS_JOIN_COMMAND     = "channels.join";
-
     private static final String CHAT_POST_MESSAGE_COMMAND = "chat.postMessage";
 
     private static final String CHAT_DELETE_COMMAND       = "chat.delete";
@@ -74,8 +70,6 @@ class SlackWebSocketSessionImpl extends AbstractSlackSessionImpl implements Slac
     private static final String CHAT_UPDATE_COMMAND       = "chat.update";
 
     private static final String REACTIONS_ADD_COMMAND     = "reactions.add";
-    
-    private static final String INVITE_USER_COMMAND     = "users.admin.invite";
 
     public class EventDispatcher
     {
@@ -84,23 +78,23 @@ class SlackWebSocketSessionImpl extends AbstractSlackSessionImpl implements Slac
         {
             switch (event.getEventType())
             {
-                case SLACK_CHANNEL_ARCHIVED:
-                    dispatchImpl((SlackChannelArchived) event, channelArchiveListener);
-                    break;
-                case SLACK_CHANNEL_CREATED:
-                    dispatchImpl((SlackChannelCreated) event, channelCreateListener);
-                    break;
-                case SLACK_CHANNEL_DELETED:
-                    dispatchImpl((SlackChannelDeleted) event, channelDeleteListener);
-                    break;
                 case SLACK_CHANNEL_RENAMED:
                     dispatchImpl((SlackChannelRenamed) event, channelRenamedListener);
                     break;
-                case SLACK_CHANNEL_UNARCHIVED:
-                    dispatchImpl((SlackChannelUnarchived) event, channelUnarchiveListener);
+                case SLACK_CHANNEL_JOINED:
+                    dispatchImpl((SlackChannelJoined) event, channelJoinedListener);
+                    break;
+                case SLACK_CHANNEL_LEFT:
+                    dispatchImpl((SlackChannelLeft) event, channelLeftListener);
                     break;
                 case SLACK_GROUP_JOINED:
                     dispatchImpl((SlackGroupJoined) event, groupJoinedListener);
+                    break;
+                case SLACK_GROUP_LEFT:
+                    dispatchImpl((SlackGroupLeft) event, groupLeftListener);
+                    break;
+                case SLACK_GROUP_RENAMED:
+                    dispatchImpl((SlackGroupRenamed) event, groupRenamedListener);
                     break;
                 case SLACK_MESSAGE_DELETED:
                     dispatchImpl((SlackMessageDeleted) event, messageDeletedListener);
@@ -454,28 +448,6 @@ class SlackWebSocketSessionImpl extends AbstractSlackSessionImpl implements Slac
         return handle;
     }
 
-    @Override
-    public SlackMessageHandle joinChannel(String channelName)
-    {
-        SlackMessageHandleImpl handle = new SlackMessageHandleImpl(getNextMessageId());
-        Map<String, String> arguments = new HashMap<>();
-        arguments.put("token", authToken);
-        arguments.put("name", channelName);
-        postSlackCommand(arguments, CHANNELS_JOIN_COMMAND, handle);
-        return handle;
-    }
-
-    @Override
-    public SlackMessageHandle leaveChannel(SlackChannel channel)
-    {
-        SlackMessageHandleImpl handle = new SlackMessageHandleImpl(getNextMessageId());
-        Map<String, String> arguments = new HashMap<>();
-        arguments.put("token", authToken);
-        arguments.put("channel", channel.getId());
-        postSlackCommand(arguments, CHANNELS_LEAVE_COMMAND, handle);
-        return handle;
-    }
-
     private void postSlackCommand(Map<String, String> params, String command, SlackMessageHandleImpl handle)
     {
         HttpClient client = getHttpClient();
@@ -609,16 +581,44 @@ class SlackWebSocketSessionImpl extends AbstractSlackSessionImpl implements Slac
         {
             JSONObject object = parseObject(message);
             SlackEvent slackEvent = SlackJSONMessageParser.decode(this, object);
-            if (slackEvent instanceof SlackChannelCreated)
-            {
-                SlackChannelCreated slackChannelCreated = (SlackChannelCreated) slackEvent;
-                channels.put(slackChannelCreated.getSlackChannel().getId(), slackChannelCreated.getSlackChannel());
+            switch (slackEvent.getEventType()) {
+		        case SLACK_CHANNEL_JOINED: {
+		            SlackChannelJoined event = (SlackChannelJoined) slackEvent;
+		            channels.put(event.getSlackChannel().getId(), event.getSlackChannel());
+		            break;
+		        }
+		        case SLACK_CHANNEL_LEFT: {
+		            SlackChannelLeft event = (SlackChannelLeft) slackEvent;
+		            channels.remove(event.getSlackChannel().getId());
+		            break;
+		        }
+		        case SLACK_CHANNEL_RENAMED: {
+		        	SlackChannelRenamed event = (SlackChannelRenamed) slackEvent;
+		        	SlackChannel channel = channels.get(event.getSlackChannel().getId());
+		        	channel.setName(event.getNewName());
+		            break;
+		        }
+		        case SLACK_GROUP_JOINED: {
+		            SlackGroupJoined event = (SlackGroupJoined) slackEvent;
+		            channels.put(event.getSlackChannel().getId(), event.getSlackChannel());
+		            break;
+		        }
+		        case SLACK_GROUP_LEFT: {
+		            SlackGroupLeft event = (SlackGroupLeft) slackEvent;
+		            channels.remove(event.getSlackChannel().getId());
+		            break;
+		        }
+		        case SLACK_GROUP_RENAMED: {
+		        	SlackGroupRenamed event = (SlackGroupRenamed) slackEvent;
+		        	SlackChannel channel = channels.get(event.getSlackChannel().getId());
+		        	channel.setName(event.getNewName());
+		            break;
+		        }
+		        default: {
+		        	// nothing else to do
+		        }
             }
-            if (slackEvent instanceof SlackGroupJoined)
-            {
-                SlackGroupJoined slackGroupJoined = (SlackGroupJoined) slackEvent;
-                channels.put(slackGroupJoined.getSlackChannel().getId(), slackGroupJoined.getSlackChannel());
-            }
+            
             dispatcher.dispatch(slackEvent);
         }
     }
@@ -637,18 +637,4 @@ class SlackWebSocketSessionImpl extends AbstractSlackSessionImpl implements Slac
             return null;
         }
     }
-
-    @Override
-    public SlackMessageHandle inviteUser(String email, String firstName, boolean setActive) {
-
-        SlackMessageHandleImpl handle = new SlackMessageHandleImpl(getNextMessageId());
-        Map<String, String> arguments = new HashMap<>();
-        arguments.put("token", authToken);
-        arguments.put("email", email);
-        arguments.put("first_name", firstName);
-        arguments.put("set_active", ""+setActive);
-        postSlackCommand(arguments, INVITE_USER_COMMAND, handle);
-        return handle;
-    }
-
 }
