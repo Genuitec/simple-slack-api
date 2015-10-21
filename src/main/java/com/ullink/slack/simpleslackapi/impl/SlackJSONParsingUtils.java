@@ -1,7 +1,5 @@
 package com.ullink.slack.simpleslackapi.impl;
 
-import java.util.Map;
-
 import org.json.simple.JSONObject;
 
 import com.ullink.slack.simpleslackapi.SlackUser;
@@ -14,7 +12,7 @@ class SlackJSONParsingUtils
         // Helper class
     }
 
-    static final SlackUser buildSlackUser(JSONObject jsonUser)
+    static final SlackUser buildSlackUser(JSONObject jsonUser, JSONObject jsonTeam)
     {
         String id = (String) jsonUser.get("id");
         String name = (String) jsonUser.get("name");
@@ -35,7 +33,8 @@ class SlackJSONParsingUtils
         {
             email = (String) profileJSON.get("email");
         }
-        return new SlackUserImpl(id, name, realName, email, deleted, admin, owner, primaryOwner, restricted, ultraRestricted, bot, tz, tzLabel, tzOffset == null ? null : new Integer(tzOffset.intValue()));
+        String teamName = (String) jsonTeam.get("name");
+        return new SlackUserImpl(id, name, realName, email, deleted, admin, owner, primaryOwner, restricted, ultraRestricted, bot, tz, tzLabel, tzOffset == null ? null : new Integer(tzOffset.intValue()), teamName);
     }
 
     private static Boolean ifNullFalse(JSONObject jsonUser, String field)

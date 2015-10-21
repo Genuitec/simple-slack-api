@@ -18,8 +18,9 @@ class SlackPersonaImpl implements SlackPersona
     final String timeZone;
     final String timeZoneLabel;
     final Integer timeZoneOffset;
+    final String teamName;
 
-    SlackPersonaImpl(String id, String userName, String realName, String userMail, boolean deleted, boolean admin, boolean owner, boolean primaryOwner, boolean restricted, boolean ultraRestricted, boolean bot, String timeZone, String timeZoneLabel, Integer timeZoneOffset)
+    SlackPersonaImpl(String id, String userName, String realName, String userMail, boolean deleted, boolean admin, boolean owner, boolean primaryOwner, boolean restricted, boolean ultraRestricted, boolean bot, String timeZone, String timeZoneLabel, Integer timeZoneOffset, String teamName)
     {
         this.id = id;
         this.userName = userName;
@@ -35,6 +36,7 @@ class SlackPersonaImpl implements SlackPersona
         this.timeZone = timeZone;
         this.timeZoneLabel = timeZoneLabel;
         this.timeZoneOffset = timeZoneOffset;
+        this.teamName = teamName;
     }
 
     @Override
@@ -120,5 +122,9 @@ class SlackPersonaImpl implements SlackPersona
     {
         return timeZoneOffset;
     }
-
+    
+    @Override
+    public String getTeamName() {
+    	return teamName;
+    }
 }

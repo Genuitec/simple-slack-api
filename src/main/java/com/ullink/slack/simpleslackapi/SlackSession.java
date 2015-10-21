@@ -71,4 +71,6 @@ public interface SlackSession
 
     void removeGroupJoinedListener(SlackGroupJoinedListener listener);
 
+	boolean isConnected();
+
 }

@@ -16,6 +16,8 @@ import com.ullink.slack.simpleslackapi.events.SlackEvent;
 import com.ullink.slack.simpleslackapi.events.SlackGroupJoined;
 import com.ullink.slack.simpleslackapi.events.SlackGroupLeft;
 import com.ullink.slack.simpleslackapi.events.SlackGroupRenamed;
+import com.ullink.slack.simpleslackapi.events.SlackIMClose;
+import com.ullink.slack.simpleslackapi.events.SlackIMOpen;
 
 class SlackJSONMessageParser
 {
@@ -80,10 +82,28 @@ class SlackJSONMessageParser
                 return extractGroupJoinedEvent(slackSession, obj);
             case GROUP_LEFT:
                 return extractGroupLeftEvent(slackSession, obj);
+            case IM_OPEN:
+                return extractIMOpenEvent(slackSession, obj);
+            case IM_CLOSE:
+                return extractIMCloseEvent(slackSession, obj);
             case OTHER:
         	default:
             	return null;
         }
+    }
+
+    private static SlackIMOpen extractIMOpenEvent(SlackSession slackSession, JSONObject obj)
+    {
+        String channel = (String) obj.get("channel");
+        String user = (String) obj.get("user");
+        return new SlackIMOpenImpl(user, channel);
+    }
+
+    private static SlackIMClose extractIMCloseEvent(SlackSession slackSession, JSONObject obj)
+    {
+        String channel = (String) obj.get("channel");
+        String user = (String) obj.get("user");
+        return new SlackIMCloseImpl(user, channel);
     }
 
     private static SlackGroupJoined extractGroupJoinedEvent(SlackSession slackSession, JSONObject obj)

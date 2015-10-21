@@ -12,6 +12,8 @@ public enum EventType
     CHANNEL_RENAMED("channel_rename"),
     CHANNEL_JOINED("channel_joined"),
     CHANNEL_LEFT("channel_left"),
+    IM_OPEN("im_open"),
+    IM_CLOSE("im_close"),
     OTHER("-");
 
     private static final Map<String, EventType> CODE_MAP = new HashMap<>();

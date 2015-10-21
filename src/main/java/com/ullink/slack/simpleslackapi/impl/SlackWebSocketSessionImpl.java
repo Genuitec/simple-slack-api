@@ -44,6 +44,7 @@ import com.ullink.slack.simpleslackapi.SlackChannel;
 import com.ullink.slack.simpleslackapi.SlackMessageHandle;
 import com.ullink.slack.simpleslackapi.SlackPersona;
 import com.ullink.slack.simpleslackapi.SlackSession;
+import com.ullink.slack.simpleslackapi.SlackUser;
 import com.ullink.slack.simpleslackapi.events.SlackChannelJoined;
 import com.ullink.slack.simpleslackapi.events.SlackChannelLeft;
 import com.ullink.slack.simpleslackapi.events.SlackChannelRenamed;
@@ -52,6 +53,8 @@ import com.ullink.slack.simpleslackapi.events.SlackEvent;
 import com.ullink.slack.simpleslackapi.events.SlackGroupJoined;
 import com.ullink.slack.simpleslackapi.events.SlackGroupLeft;
 import com.ullink.slack.simpleslackapi.events.SlackGroupRenamed;
+import com.ullink.slack.simpleslackapi.events.SlackIMClose;
+import com.ullink.slack.simpleslackapi.events.SlackIMOpen;
 import com.ullink.slack.simpleslackapi.events.SlackMessageDeleted;
 import com.ullink.slack.simpleslackapi.events.SlackMessagePosted;
 import com.ullink.slack.simpleslackapi.events.SlackMessageUpdated;
@@ -614,6 +617,20 @@ class SlackWebSocketSessionImpl extends AbstractSlackSessionImpl implements Slac
 		        	channel.setName(event.getNewName());
 		            break;
 		        }
+		        case SLACK_IM_OPEN: {
+		        	SlackIMOpen event = (SlackIMOpen) slackEvent;
+		        	SlackUser user = users.get(event.getUser());
+		        	if (user != null)
+		        		((SlackUserImpl)user).setImChannelID(event.getChannel());
+		        	break;
+		        }
+		        case SLACK_IM_CLOSE: {
+		        	SlackIMClose event = (SlackIMClose) slackEvent;
+		        	SlackUser user = users.get(event.getUser());
+		        	if (user != null)
+		        		((SlackUserImpl)user).setImChannelID(null);
+		        	break;
+		        }
 		        default: {
 		        	// nothing else to do
 		        }
@@ -636,5 +653,10 @@ class SlackWebSocketSessionImpl extends AbstractSlackSessionImpl implements Slac
             e.printStackTrace();
             return null;
         }
+    }
+    
+    @Override
+    public boolean isConnected() {
+    	return websocketSession != null;
     }
 }

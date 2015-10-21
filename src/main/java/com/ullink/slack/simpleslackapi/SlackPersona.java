@@ -19,4 +19,5 @@ public interface SlackPersona
     String getTimeZone();
     String getTimeZoneLabel();
     int getTimeZoneOffset();
+    String getTeamName();
 }
