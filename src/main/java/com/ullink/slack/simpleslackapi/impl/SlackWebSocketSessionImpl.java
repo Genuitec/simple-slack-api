@@ -5,8 +5,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.net.ConnectException;
-import java.net.Proxy;
 import java.net.URI;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -22,17 +22,24 @@ import javax.websocket.Session;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.config.RequestConfig.Builder;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpRequestBase;
+import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.conn.DefaultProxyRoutePlanner;
 import org.apache.http.message.BasicNameValuePair;
 import org.glassfish.tyrus.client.ClientManager;
 import org.glassfish.tyrus.client.ClientProperties;
+import org.glassfish.tyrus.core.Base64Utils;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
@@ -43,6 +50,7 @@ import com.ullink.slack.simpleslackapi.SlackAttachment;
 import com.ullink.slack.simpleslackapi.SlackChannel;
 import com.ullink.slack.simpleslackapi.SlackMessageHandle;
 import com.ullink.slack.simpleslackapi.SlackPersona;
+import com.ullink.slack.simpleslackapi.SlackProxyData;
 import com.ullink.slack.simpleslackapi.SlackSession;
 import com.ullink.slack.simpleslackapi.SlackUser;
 import com.ullink.slack.simpleslackapi.events.SlackChannelJoined;
@@ -62,7 +70,7 @@ import com.ullink.slack.simpleslackapi.events.SlackReplyEvent;
 import com.ullink.slack.simpleslackapi.impl.SlackChatConfiguration.Avatar;
 import com.ullink.slack.simpleslackapi.listeners.SlackEventListener;
 
-class SlackWebSocketSessionImpl extends AbstractSlackSessionImpl implements SlackSession, MessageHandler.Whole<String>
+public class SlackWebSocketSessionImpl extends AbstractSlackSessionImpl implements SlackSession, MessageHandler.Whole<String>
 {
     private static final String SLACK_API_HTTPS_ROOT      = "https://slack.com/api/";
 
@@ -134,9 +142,6 @@ class SlackWebSocketSessionImpl extends AbstractSlackSessionImpl implements Slac
 
     private Session                           websocketSession;
     private String                            authToken;
-    private String                            proxyAddress;
-    private int                               proxyPort                  = -1;
-    HttpHost                                  proxyHost;
     private long                              lastPingSent               = 0;
     private volatile long                     lastPingAck                = 0;
 
@@ -152,16 +157,7 @@ class SlackWebSocketSessionImpl extends AbstractSlackSessionImpl implements Slac
     private Thread                            connectionMonitoringThread = null;
     private EventDispatcher                   dispatcher                 = new EventDispatcher();
 
-    SlackWebSocketSessionImpl(String authToken, Proxy.Type proxyType, String proxyAddress, int proxyPort, boolean reconnectOnDisconnection)
-    {
-        this.authToken = authToken;
-        this.proxyAddress = proxyAddress;
-        this.proxyPort = proxyPort;
-        this.proxyHost = new HttpHost(proxyAddress, proxyPort);
-        this.reconnectOnDisconnection = reconnectOnDisconnection;
-    }
-
-    SlackWebSocketSessionImpl(String authToken, boolean reconnectOnDisconnection)
+    public SlackWebSocketSessionImpl(String authToken, boolean reconnectOnDisconnection)
     {
         this.authToken = authToken;
         this.reconnectOnDisconnection = reconnectOnDisconnection;
@@ -184,18 +180,19 @@ class SlackWebSocketSessionImpl extends AbstractSlackSessionImpl implements Slac
         disconnectImpl();
         stopConnectionMonitoring();
     }
+    
+    public SlackProxyData getProxy() {
+    	return null;
+    }
 
     private void connectImpl() throws IOException, ClientProtocolException, ConnectException
     {
-    	RequestConfig requestConfig = RequestConfig.custom().setSocketTimeout(60000).
-    		setConnectTimeout(60000).setConnectionRequestTimeout(60000).build();
-    	
         LOGGER.info("connecting to slack");
         lastPingSent = 0;
         lastPingAck = 0;
         HttpClient httpClient = getHttpClient();
         HttpGet request = new HttpGet(SLACK_HTTPS_AUTH_URL + authToken);
-        request.setConfig(requestConfig);
+        setupRequest(request);
         HttpResponse response;
         response = httpClient.execute(request);
         LOGGER.debug(response.getStatusLine().toString());
@@ -222,10 +219,16 @@ class SlackWebSocketSessionImpl extends AbstractSlackSessionImpl implements Slac
         String wssurl = sessionParser.getWebSocketURL();
 
         LOGGER.debug("retrieved websocket URL : " + wssurl);
-        ClientManager client = ClientManager.createClient();
-        if (proxyAddress != null)
+        ClientManager client = ClientManager.createClient("org.glassfish.tyrus.container.jdk.client.JdkClientContainer");
+        SlackProxyData proxy = getProxy();
+        if (proxy != null)
         {
-            client.getProperties().put(ClientProperties.PROXY_URI, "http://" + proxyAddress + ":" + proxyPort);
+        	if (proxy.getUsername() != null && proxy.getPassword() != null) {
+        	    final HashMap<String,String> proxyHeaders = new HashMap<String,String>();
+                proxyHeaders.put("Proxy-Authorization", "Basic " + Base64Utils.encodeToString((proxy.getUsername()+":"+proxy.getPassword()).getBytes(Charset.forName("UTF-8")), false));
+                client.getProperties().put(ClientProperties.PROXY_HEADERS, proxyHeaders);
+        	}
+            client.getProperties().put(ClientProperties.PROXY_URI, "http://" + proxy.getHost() + ":" + proxy.getPort());
         }
         final MessageHandler handler = this;
         LOGGER.debug("initiating connection to websocket");
@@ -254,7 +257,13 @@ class SlackWebSocketSessionImpl extends AbstractSlackSessionImpl implements Slac
         }
     }
 
-    private void disconnectImpl()
+    public void setupRequest(HttpRequestBase request) {
+    	Builder requestConfig = RequestConfig.custom();
+    	requestConfig.setSocketTimeout(60000).setConnectTimeout(60000).setConnectionRequestTimeout(60000);
+    	request.setConfig(requestConfig.build());
+	}
+
+	private void disconnectImpl()
     {
         if (websocketSession != null)
         {
@@ -455,6 +464,7 @@ class SlackWebSocketSessionImpl extends AbstractSlackSessionImpl implements Slac
     {
         HttpClient client = getHttpClient();
         HttpPost request = new HttpPost(SLACK_API_HTTPS_ROOT + command);
+        setupRequest(request);
         List<NameValuePair> nameValuePairList = new ArrayList<>();
         for (Map.Entry<String, String> arg : params.entrySet())
         {
@@ -476,12 +486,23 @@ class SlackWebSocketSessionImpl extends AbstractSlackSessionImpl implements Slac
         }
     }
 
-    private HttpClient getHttpClient()
+    public HttpClient getHttpClient()
     {
         HttpClient client = null;
-        if (proxyHost != null)
+        SlackProxyData proxy = getProxy();
+        if (proxy != null)
         {
-            client = HttpClientBuilder.create().setRoutePlanner(new DefaultProxyRoutePlanner(proxyHost)).build();
+        	HttpClientBuilder builder = HttpClientBuilder.create();
+            builder = HttpClientBuilder.create();
+        	builder.setRoutePlanner(new DefaultProxyRoutePlanner(new HttpHost(proxy.getHost(), proxy.getPort())));
+        	if (proxy.getUsername() != null && proxy.getPassword() != null) {
+	        	CredentialsProvider credsProvider = new BasicCredentialsProvider();
+	            credsProvider.setCredentials(
+                    new AuthScope(proxy.getHost(), proxy.getPort()),
+                    new UsernamePasswordCredentials(proxy.getUsername(), proxy.getPassword()));
+	            builder.setDefaultCredentialsProvider(credsProvider);
+        	}
+        	client = builder.build();
         }
         else
         {
@@ -519,6 +540,7 @@ class SlackWebSocketSessionImpl extends AbstractSlackSessionImpl implements Slac
     {
         HttpClient client = getHttpClient();
         HttpPost request = new HttpPost("https://slack.com/api/users.getPresence");
+        setupRequest(request);
         List<NameValuePair> nameValuePairList = new ArrayList<>();
         nameValuePairList.add(new BasicNameValuePair("token", authToken));
         nameValuePairList.add(new BasicNameValuePair("user", persona.getId()));
