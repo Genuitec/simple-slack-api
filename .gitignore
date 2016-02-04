@@ -8,3 +8,5 @@ src/main/java/rebel.xml
 /bin/
 /build/
 /.gradle/
+/target/
+/simpleslackapi.jar
